@@ -129,3 +129,6 @@ Desktop.ini
 # Temporary files
 *~
 *.swp
+
+# Project
+batches
