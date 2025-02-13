@@ -1,42 +1,51 @@
-# WBDConnector
-This is a sample Python application to download book data from the Azymut API (WBDConnector) in batches. Each batch is assumed to contain 500 records.
-## Features
-The script implements the following improvements:
-* **60-second delay:** The script waits at least 60 seconds between requests to respect API rate limits and prevent overloading the server
-* **Duplicate batch detection:** Instead of using the transaction ID, the script compares the "indeks" (index) of the first book in each batch. If the first record's index matches that of the last saved batch, it is considered a duplicate and is not saved again
-* **Batch file saving:** Each batch is saved as its own XML file in the `batches` folder for better organization and error recovery
-* **Resume capability:** If the script is interrupted, it can be restarted and will check the existing batch files to avoid re-processing a batch
+# WBD Connector & XML-to-CSV Converter
 
-## Requirements
-* Python 3.6 or newer
-* The `requests` library
+## Requirements:
 
-## Installation
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/your_username/wbd_connector.git
-   ```
-2. Change to the repository directory:
-   ```bash
-   cd wbd_connector
-   ```
-3. Install the required packages:
-   ```bash
-   pip install -r requirements.txt
-   ```
-## Usage
-Run the script from the command line with the required arguments:
+ - Python 3.6+
+ - Packages: requests, colorama (These are listed in the provided requirements.txt file.)
+
+## Installation:
+
+1. Install dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+## Usage:
+
+1. **Download XML Data**:
+   
+   Run `wbd_connector.py` to download batches of XML data.
+   
+   Example:
    ```bash
    python3 wbd_connector.py --client-id YOUR_CLIENT_ID --password YOUR_PASSWORD
    ```
-Optional arguments include:
-- `--base-url`
-- `--total-records`
-- `--batch-size`
-## Notes
-* The script enforces a 60-second wait between requests
-* Duplicate batch detection is based on comparing the first book's index from the current batch with that of the last saved batch
-* The resume mechanism is based on the batch files saved in the `batches` folder
 
-## Python Compatibility
-This script is written for Python 3.6 and newer.
+   Optional parameters:
+   - `--base-url`: Base URL of the service (default: http://services.azymut.pl/oferta/servlet/)
+   - `--total-records`: Total expected records (default: 164000)
+   - `--batch-size`: Number of records per batch (default: 500)
+   
+   The XML files will be saved in the "batches" directory.
+
+2. **Convert XML to CSV**:
+
+   Run `xml_to_csv.py` to convert the XML files to CSV.
+
+   Example:
+   ```bash
+   python3 python xml_to_csv.py
+   ```
+
+   Optional parameters:
+    - `--batches-dir`: Directory containing XML files (default: batches)
+    - `--output-dir`: Directory to store CSV files (default: csv)
+
+   The CSV files will be saved in the "csv" directory.
+
+## Notes:
+ - `wbd_connector.py` waits 60 seconds between batches and checks for duplicate downloads.
+ - `xml_to_csv.py` removes the "atrybuty" property from book records.
+ - Run the scripts in the order above.
