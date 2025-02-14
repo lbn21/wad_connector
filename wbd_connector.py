@@ -102,6 +102,22 @@ def print_header(records_downloaded, total_records, batch_size):
     )
     print(header_message)
 
+def get_with_retries(url, params, retries=3, delay=5):
+    """Attempt a GET request with retries on failure."""
+    for attempt in range(1, retries + 1):
+        try:
+            response = requests.get(url, params=params, timeout=10)
+            if response.status_code == 200:
+                return response
+            else:
+                logging.error(f"Attempt {attempt}: Received status code {response.status_code}")
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Attempt {attempt}: Request failed: {e}")
+        if attempt < retries:
+            logging.info(f"Retrying in {delay} seconds...")
+            time.sleep(delay)
+    return None
+
 def get_books(client_id, password, base_url, total_records, batch_size):
     """
     Downloads books data from the API.
@@ -137,9 +153,9 @@ def get_books(client_id, password, base_url, total_records, batch_size):
             time.sleep(60)
 
         logging.info(f"{Fore.YELLOW}Requesting a new batch from getdb...{Style.RESET_ALL}")
-        response = requests.get(base_url, params=getdb_params)
-        if response.status_code != 200:
-            logging.error(f"Error fetching data: {response.status_code}")
+        response = get_with_retries(base_url, params=getdb_params)
+        if response is None:
+            logging.error("Failed to fetch data after retries; exiting.")
             break
 
         try:
@@ -157,28 +173,28 @@ def get_books(client_id, password, base_url, total_records, batch_size):
         if last_first_index is not None and current_first_index == last_first_index:
             logging.info(f"{Fore.MAGENTA}Duplicate batch detected (first record index matches last saved batch).{Style.RESET_ALL}")
             confirm_params["transactionId"] = root.get("transactionId")
-            confirm_response = requests.get(base_url, params=confirm_params)
-            if confirm_response.status_code == 200:
+            confirm_response = get_with_retries(base_url, params=confirm_params)
+            if confirm_response is not None and confirm_response.status_code == 200:
                 logging.info(f"{Fore.GREEN}Confirmation succeeded on duplicate batch. Updating last batch file.{Style.RESET_ALL}")
                 last_file, _ = get_last_batch_info()
                 if last_file and "_confirmed" not in last_file:
                     update_confirmation(last_file)
                 last_first_index = None
             else:
-                logging.error(f"Confirmation failed on duplicate batch: {confirm_response.status_code}")
+                logging.error("Confirmation failed on duplicate batch.")
             continue
 
         logging.info(f"{Fore.YELLOW}Saving new batch {batch_num} with first record index {current_first_index}.{Style.RESET_ALL}")
         filename = save_batch(response.content, batch_num, current_first_index, confirmed=False)
 
         confirm_params["transactionId"] = root.get("transactionId")
-        confirm_response = requests.get(base_url, params=confirm_params)
-        if confirm_response.status_code == 200:
+        confirm_response = get_with_retries(base_url, params=confirm_params)
+        if confirm_response is not None and confirm_response.status_code == 200:
             logging.info(f"{Fore.GREEN}Batch confirmed successfully.{Style.RESET_ALL}")
             update_confirmation(filename)
             last_first_index = None
         else:
-            logging.error(f"Batch confirmation failed (status: {confirm_response.status_code}). Will retry this batch next time.")
+            logging.error("Batch confirmation failed; will retry this batch next time.")
             last_first_index = current_first_index
             continue
 
