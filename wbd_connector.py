@@ -102,20 +102,43 @@ def print_header(records_downloaded, total_records, batch_size):
     )
     print(header_message)
 
-def get_with_retries(url, params, retries=3, delay=5):
-    """Attempt a GET request with retries on failure."""
+def get_with_retries(url, params, retries=5, delay=30, validate_xml=False):
+    """
+    Attempt a GET request with retries on failure.
+
+    Args:
+        url: The URL to request
+        params: Query parameters
+        retries: Number of retry attempts
+        delay: Delay between retries in seconds
+        validate_xml: Whether to validate the response as XML
+    """
+    response = None
+
     for attempt in range(1, retries + 1):
         try:
             response = requests.get(url, params=params, timeout=10)
             if response.status_code == 200:
-                return response
+                if validate_xml:
+                    # Try to parse the XML to validate it
+                    try:
+                        ET.fromstring(response.content)
+                    except ET.ParseError as e:
+                        logging.error(f"Attempt {attempt}: XML parsing failed: {e}")
+                        response = None
+                if response is not None:
+                    return response
             else:
                 logging.error(f"Attempt {attempt}: Received status code {response.status_code}")
+                response = None
         except requests.exceptions.RequestException as e:
             logging.error(f"Attempt {attempt}: Request failed: {e}")
+            response = None
+
         if attempt < retries:
             logging.info(f"Retrying in {delay} seconds...")
             time.sleep(delay)
+
     return None
 
 def get_books(client_id, password, base_url, total_records, batch_size):
@@ -153,7 +176,7 @@ def get_books(client_id, password, base_url, total_records, batch_size):
             time.sleep(60)
 
         logging.info(f"{Fore.YELLOW}Requesting a new batch from getdb...{Style.RESET_ALL}")
-        response = get_with_retries(base_url, params=getdb_params)
+        response = get_with_retries(base_url, params=getdb_params, validate_xml=True)
         if response is None:
             logging.error("Failed to fetch data after retries; exiting.")
             break
